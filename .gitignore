@@ -1,0 +1,11 @@
+data/
+pretrained/
+outputs/
+.venv/
+__pycache__/
+*.py[cod]
+*.pth
+*.pt
+*.pkl
+*.log
+.DS_Store

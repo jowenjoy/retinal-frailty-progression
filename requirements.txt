@@ -1,0 +1,9 @@
+numpy
+pandas
+torch>=2.0
+torchvision
+timm
+scikit-learn
+Pillow
+tqdm
+lifelines

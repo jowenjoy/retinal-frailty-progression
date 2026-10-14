@@ -1,0 +1,41 @@
+{
+  "note": "Training-only export. Paths made configurable; unused preparation functions removed; fold builder extracted; validation module renamed. Training algorithm unchanged.",
+  "sources": [
+    {
+      "source": "final_version/source_cox/model.py",
+      "sha256": "71d79b9f0a9d5d19510bb991cf29c1fa09341284271b02f6303f304888f7b329"
+    },
+    {
+      "source": "final_version/source_cox/losses.py",
+      "sha256": "cf612cabb26c93f2c2bd8b44d299efcfca4bf1f16de6fecb3a842d9513cda174"
+    },
+    {
+      "source": "final_version/source_cox/utils.py",
+      "sha256": "66308ca5812c9801afc0bbcdc357e758e2737cb2b46c894398b9b6f250f43e01"
+    },
+    {
+      "source": "final_version/source_cox/transition_data.py",
+      "sha256": "e137de585da986af5a59a35504af2fb7c2f6ca1b59a8ac09af9df4bca4a8cc7c"
+    },
+    {
+      "source": "final_version/source_cox/dataset.py",
+      "sha256": "890cdfc0d641c5275b62296cfdfc386b6e427a1a30432ebb556414964798b434"
+    },
+    {
+      "source": "final_version/source_cox/evaluate.py",
+      "sha256": "e8d040458ac002e8bc00f930cfef88d0010939e06c1773750f1dcbb4565607f9"
+    },
+    {
+      "source": "final_version/source_cox/cross_validation.py",
+      "sha256": "fd5c947ef6483968dadaea279761cccf65de5d16b871bd2ba971bb9ddb5bad82"
+    },
+    {
+      "source": "final_version/source_cox/cross_validation_by_class.py",
+      "sha256": "dbd838cedfbfda146b9581e246b4134d1a81753adf26f1a1613969fe3b7f9490"
+    },
+    {
+      "source": "prefrailty/cross_validation_pattern.py",
+      "sha256": "cbe46cc684186d889367672efe028fcc68b3ce65659a9bb4d73e2a585324c72b"
+    }
+  ]
+}
