@@ -4,12 +4,12 @@ import pandas as pd
 
 def build_fold_assignment(df, n_parts: int = 5, seed: int = 42):
     """
-    每个 class 内部按 Frailty_Score 均分为 n_parts 份：
-      1. 组内按 (score, eid) 排序；
-      2. 相同 score 的块内随机打乱（避免 eid 顺序带来的系统性偏差）；
-      3. 轮转发牌（ordered[k::n_parts]）—— 每份拿到的分数分布与该 class 一致。
+    Split each endpoint class into n_parts score-balanced folds:
+      1. Sort each class by (score, eid).
+      2. Shuffle within equal-score blocks to avoid systematic participant-order bias.
+      3. Distribute records round-robin (ordered[k::n_parts]) to balance scores across folds.
 
-    返回 DataFrame: eid, class, fold (1-based)
+    Return a DataFrame with eid, class, and fold (1-based).
     """
     rng = np.random.RandomState(seed)
     rows = []

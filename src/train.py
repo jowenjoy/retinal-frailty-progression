@@ -30,17 +30,17 @@ PATTERN_CONFIG = {
 
 
 def log_fold_class_table(logger, train_df, test_df, classes):
-    """打印折内 train/test 各 class 人数与事件数。"""
+    """Log class counts and event totals for the training and validation subsets."""
     for part, sub in [('train', train_df), ('test', test_df)]:
         dist = sub.groupby('class').size().reindex(classes, fill_value=0)
         ev = int(sub['event'].sum())
         logger.info(
             f"  {part:5s} n={len(sub):5d} ev={ev:4d} "
-            f"class分布={list(dist.values)}")
+            f"class_distribution={list(dist.values)}")
 
 
 def write_fold_class_distribution(assign, output_dir, n_parts, classes):
-    """写出每折各 class 人数表。"""
+    """Write the class counts for each fold."""
     dist_rows = []
     for fold_idx in range(n_parts):
         sub = assign[assign['fold'] == fold_idx + 1]
@@ -127,7 +127,7 @@ def main():
     logger.info(f"device={device} seed={args.seed}")
     logger.info("=" * 60)
 
-    # ---- 1. 人口学：加载 → 按模式过滤 → 重定义结局 ----
+    # ---- 1. Load and validate demographics, then filter by transition pattern ----
     df = load_transition_data(os.path.join(args.data_dir, 'demographicdata.csv'), args.pattern)
     logger.info(f"[Data] After pattern filter (score {lo}-{hi}): "
                 f"n={len(df)}, events={int(df['event'].sum())} "
@@ -138,7 +138,7 @@ def main():
     df = df[df['eid'].isin(valid_eids)].reset_index(drop=True)
     logger.info(f"[Data] Matched with fundus images: {len(df)} subjects")
 
-    # ---- 2. 特征缓存（复用，无需重新提取）----
+    # ---- 2. Load or build the verified feature cache----
     img_features = get_or_extract_features(args.cache_path, args.data_dir, args.cfp_weights, device)
     eligible_features = {eid for eid, feature in img_features.items()
                          if np.isfinite(feature).all() and np.any(feature[1])}
@@ -152,7 +152,7 @@ def main():
     logger.info(f"[Feat] Reusing cached features: {args.cache_path}")
     logger.info(f"[Feat] cache subjects={len(img_features)}  feat_dim={feat_dim}")
 
-    # ---- 3. 折划分（与 cross_validation_by_class 完全一致的方法）----
+    # ---- 3. Assign folds using the shared score-balanced method----
     if args.fold_assignment_csv:
         check_fold_signature(args.fold_assignment_csv, df)
         assign = pd.read_csv(args.fold_assignment_csv)[['eid', 'fold']].drop_duplicates()
@@ -180,7 +180,7 @@ def main():
 
     covar_cols = [c for c in COVAR_COLS if c in df.columns]
 
-    # ---- 4. 逐折训练 ----
+    # ---- 4. Train each fold ----
     fold_results, all_val_predictions = [], []
     for fold_idx in range(args.n_parts):
         logger.info(f"\n{'=' * 40}\n  Fold {fold_idx + 1}/{args.n_parts}\n{'=' * 40}")
@@ -215,7 +215,7 @@ def main():
         fold_results.append(result)
         logger.info(f"  Fold {fold_idx + 1} done: C-index = {result['val_cindex']:.4f}")
 
-    # ---- 5. 汇总 ----
+    # ---- 5. Summarize results ----
     cindices = [r['val_cindex'] for r in fold_results]
     for r in fold_results:
         logger.info(
@@ -261,4 +261,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

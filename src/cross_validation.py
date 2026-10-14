@@ -47,16 +47,16 @@ class EarlyStopping:
             return False
 
 
-# ── 基础数据加载（不做 scaling/encoding，避免跨折泄露） ──────────────────────────
+# ── Basic data loading without scaling or encoding to prevent leakage across folds ──────────────────────────
 
 def load_demographics_raw(csv_path: str):
     """
-    加载人口学数据，仅做基础清洗：
-      - 验证预先生成的首次观测事件、基线和时间字段
-      - 不覆盖 event，不按最终 score 重新筛选
-      - 缺失值填补及 scaling/encoding 仅在每折训练集上拟合
+    Load demographic data with basic validation only:
+      - Validate prepared first-observed event, baseline, and follow-up fields.
+      - Preserve event labels and do not refilter by final score.
+      - Fit imputation, scaling, and encoding on each training fold only.
 
-    返回的 DataFrame 中数值列保持原始尺度，分类列保持原始类别字符串。
+    Return a DataFrame with numerical columns on their original scales and categorical columns as original category strings.
     """
     from transition_data import load_transition_data
     return load_transition_data(csv_path)
@@ -64,17 +64,17 @@ def load_demographics_raw(csv_path: str):
 
 def fit_transform_covariates(train_df, val_df, covar_cols):
     """
-    在训练集上 fit LabelEncoder + StandardScaler，然后 transform 训练集和验证集。
+    Fit LabelEncoder and StandardScaler on training data, then transform training and validation data.
 
-    关键：所有 fit 操作只在 train_df 上进行，杜绝验证集信息泄露。
+    Fit all preprocessing operations on train_df only to prevent validation-data leakage.
 
     Args:
-        train_df: 训练集 DataFrame
-        val_df:   验证集 DataFrame
-        covar_cols: 需要处理的协变量列名列表
+        train_df: Training DataFrame.
+        val_df: Validation DataFrame.
+        covar_cols: Covariate column names to process.
 
     Returns:
-        train_df, val_df: 处理后的 DataFrame（copy）
+        train_df, val_df: Copies of the processed DataFrames.
     """
     train_df = train_df.copy()
     val_df = val_df.copy()
@@ -82,7 +82,7 @@ def fit_transform_covariates(train_df, val_df, covar_cols):
     cat_cols = [c for c in CAT_COLS if c in covar_cols]
     num_cols = [c for c in NUM_COLS if c in covar_cols]
 
-    # 1. 用训练集的 median/mode 填充缺失值
+    # 1. Impute missing values using training-set medians and modes.
     for col in num_cols:
         med = train_df[col].median()
         if pd.isna(med):
@@ -96,22 +96,22 @@ def fit_transform_covariates(train_df, val_df, covar_cols):
         train_df[col] = train_df[col].fillna(fill_val)
         val_df[col]   = val_df[col].fillna(fill_val)
 
-    # 2. LabelEncoder：只在训练集上 fit
+    # 2. Fit LabelEncoder on training data only.
     for col in cat_cols:
         le = LabelEncoder()
         train_df[col] = le.fit_transform(train_df[col].astype(str))
-        # 处理验证集中可能出现的新类别
+        # Handle categories present only in validation data.
         val_classes = set(val_df[col].astype(str).unique())
         known_classes = set(le.classes_)
         unknown = val_classes - known_classes
         if unknown:
-            # 将未知类别映射到出现频率最高的已知类别
+            # Map unseen categories to the most frequent known training category.
             most_freq = train_df[col].value_counts().index[0]
             val_df[col] = val_df[col].astype(str).apply(
                 lambda x: x if x in known_classes else le.classes_[most_freq])
         val_df[col] = le.transform(val_df[col].astype(str))
 
-    # 3. StandardScaler：只在训练集上 fit
+    # 3. Fit StandardScaler on training data only.
     scaler = StandardScaler()
     if num_cols:
         train_df[num_cols] = scaler.fit_transform(train_df[num_cols])
@@ -120,7 +120,7 @@ def fit_transform_covariates(train_df, val_df, covar_cols):
     return train_df, val_df
 
 
-# ── 单折训练 ────────────────────────────────────────────────────────────────────
+# ── Single-fold training ────────────────────────────────────────────────────────────────────
 
 def train_one_epoch(model, loader, optimizer, device, use_covar, args):
     model.train()
@@ -154,20 +154,20 @@ def train_one_epoch(model, loader, optimizer, device, use_covar, args):
 def run_single_fold(args, fold_idx, train_data_raw, val_data_raw,
                     img_features, covar_cols, feat_dim, device, logger):
     """
-    训练单个 fold：
-      1. 在训练集上 fit scaler/encoder，transform 训练+验证集
-      2. 构建 SurvivalDataset
-      3. 训练模型
-      4. 返回验证集 C-index 和预测结果
+    Train a single fold:
+      1. Fit preprocessing on training data and transform training and validation data.
+      2. Build SurvivalDataset instances.
+      3. Train the model.
+      4. Return fold metrics and save predictions.
 
-    输出（fold 目录内）：
-      val_predictions.csv   — eid, score, time, event, risk（eid 按 dataset 行序）
-      train_predictions.csv — 同上，用 best ckpt 在无噪声（split='val'）训练集上预测
+    Outputs in the fold directory:
+      val_predictions.csv: eid, score, time, event, risk in dataset row order.
+      train_predictions.csv: Same columns, predicted using the best checkpoint and noise-free training data (split='val').
     """
     fold_dir = os.path.join(args.output_dir, f'fold_{fold_idx + 1}')
     os.makedirs(fold_dir, exist_ok=True)
 
-    # ---- 关键步骤：在训练集上 fit，杜绝泄露 ----
+    # ---- Fit preprocessing on training data only to prevent leakage ----
     train_data, val_data = fit_transform_covariates(
         train_data_raw, val_data_raw, covar_cols)
 
@@ -267,10 +267,10 @@ def run_single_fold(args, fold_idx, train_data_raw, val_data_raw,
     best_vm = evaluate_model(model, val_loader, device, use_covar=args.use_covar)
 
     def _collect_preds(loader):
-        """按 loader 顺序收集 risk/time/event/score。
+        """Collect risk, time, event, and score in loader order.
 
-        loader 无 shuffle → 顺序与 dataset 行序一致，故可用 dataset 的
-        eid 列一一对应（预测文件中的每条 score 都有 eid）。
+        The loader does not shuffle, so predictions follow dataset row order.
+        Each prediction can therefore be paired with its dataset participant ID.
         """
         model.eval()
         risks, times, events, scores = [], [], [], []
@@ -287,7 +287,7 @@ def run_single_fold(args, fold_idx, train_data_raw, val_data_raw,
                 scores.extend(b_scores.cpu().numpy().tolist())
         return risks, times, events, scores
 
-    # 验证折预测（带 eid/score）
+    # Validation-fold predictions with participant IDs and scores
     all_risks, all_times, all_events, all_scores = _collect_preds(val_loader)
     fold_preds = pd.DataFrame({
         'eid':   val_ds.data['eid'].astype(int).tolist(),
@@ -301,7 +301,7 @@ def run_single_fold(args, fold_idx, train_data_raw, val_data_raw,
         fold_preds[column] = val_ds.data[column].values
     fold_preds.to_csv(os.path.join(fold_dir, 'val_predictions.csv'), index=False)
 
-    # 训练折预测（best ckpt；split='val' → 无特征噪声/模态 dropout，供校准复用）
+    # Training-fold predictions using the best checkpoint and split='val' (no feature noise or modality dropout), for calibration reuse
     train_eval_ds = SurvivalDataset(
         train_data, img_features, covar_cols,
         split='val', active_slots=args.active_slots)
@@ -335,6 +335,3 @@ def run_single_fold(args, fold_idx, train_data_raw, val_data_raw,
         'val_cindex': best_vm['cindex'],
         'train_cindex': train_vm['cindex'],
     }
-
-
-

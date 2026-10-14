@@ -112,15 +112,15 @@ def load_retfound_backbone(ckpt_path: str, device: torch.device,
     return final_model.to(device)
 
 
-# ── 人口学预处理 ──────────────────────────────────────────────────────────────
+# ── Demographic preprocessing ──────────────────────────────────────────────────────────────
 
 
 
-# ── 图像路径发现 ──────────────────────────────────────────────────────────────
+# ── Image path discovery ──────────────────────────────────────────────────────────────
 
 
 
-# ── 特征提取 ───────────────────────────────────────────────────
+# ── Feature extraction ───────────────────────────────────────────────────
 
 def extract_all_features(df, img_paths,
                          backbone: nn.Module,
@@ -306,4 +306,3 @@ class SurvivalDataset(Dataset):
 
 
 # ── build_datasets ────────────────────────────────────────────────────────────
-
